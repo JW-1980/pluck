@@ -30,11 +30,12 @@ detection and backoff.
 1. **One spider host**: a single VPS runs the bulk spider and FlareSolverr for
    both sites. The Oracle scraper VM (Browserless :3000 + FlareSolverr :8191)
    is retired once the cutover gate passes.
-2. **One bulk spider today**: Inktomi (`C:\Projecten\Inktomi`, .NET 10 +
-   Python) owns bulk crawling, the spider databases (`nutricomparev2`,
-   `superraten`) and the publisher. Pluck does not replace it; it de-duplicates
-   the fetch primitives the two PHP apps use for their own (narrow, throttled)
-   scraping: live price refresh, shop feeds, promotions, corrections/rescrapes.
+2. **One spider, end state Pluck (PHP)**. Inktomi is **phased out**: it stays
+   on the owner's PC (its data with it) until the PHP bulk spider replaces
+   it, and its good behaviours are the adaptation spec
+   (`docs/FUNCTIONAL_DESIGN.md` §4). Pluck's proxy + client are the vehicle.
+   The Oracle scraper VM (Browserless :3000 + FlareSolverr :8191) is retired
+   first, after its own cutover gate.
 3. **FlareSolverr front door**: FlareSolverr runs on the Docker internal
    network only. The internet reaches it through one HTTPS endpoint with a
    secret path (and optionally an IP allowlist / rate limit), proxied by
@@ -62,16 +63,25 @@ and search. The composer name `jw-1980/pluck` and the `Pluck\` namespace are
 accepted tradeoffs; renaming later is cheap now and expensive after the first
 consumers land.
 
+## Documentation
+
+| Document | Contents |
+|---|---|
+| `docs/INVENTORY.md` | Verified ground truth: the three existing codebases, who fetches what, transport status, data volumes, the duplication map |
+| `docs/FUNCTIONAL_DESIGN.md` | The build brief: owner requirements as stated (traceability), target architecture, Inktomi's behaviour spec (what we adapt), the division of labour, security, recommendations, open questions |
+| `docs/PROXY_CONTRACT.md` | The wire contract v1 between the PHP SDK and `pluck-proxy` — strip modes incl. `xpath` keep-expressions, outcome taxonomy, politeness, caching |
+| `docs/MIGRATION_PLAN.md` | Ordered, gated phases for the implementing agent, with hard rejects |
+| `docs/INTEGRATION.md` | Composer adoption for both consumer apps |
+
 ## Roadmap
 
-1. **Wiring audit of NutriCompare's in-app spider stack** (`app/Services/Spider`,
-   `Crawler`, `Extraction`, `Scheduling`) — what is scheduled, what is
-   reachable, what is dead. Nothing is extracted into Pluck before this audit
-   says the code is worth sharing.
-2. **First extraction candidates** (highest-proven duplication):
-   - the FlareSolverr client, which exists three times today (NutriCompare's
-     `FlareSolverrSourceDriver`, WelZoLekker's `ProductPageFetcher` /
-     `PromotionPageFetcher`, Inktomi's `fetcher.py`) with different body caps,
-     redirect rules and failure semantics;
-   - polite-fetch primitives (`PoliteFetcher`, `GuardedClient`).
-3. Consumers adopt the package one app at a time, tests first.
+Implementation is ordered and gated in `docs/MIGRATION_PLAN.md`; in brief:
+
+1. **Wiring audit** of NutriCompare's in-app spider stack — gates all
+   extraction.
+2. **Proxy service + contract v1** (in this repo, Dockerised, contract tests).
+3. **PHP client SDK** (`ProxyClient`, typed outcomes).
+4. **Consumer adoption**, one app at a time, tests first.
+5. **Oracle cutover** (gate 1), then the **PHP bulk spider** adapting
+   Inktomi's behaviours, then **Inktomi phase-out** (gate 2: a full
+   publisher build delivered end-to-end to both consumers).
