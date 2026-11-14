@@ -1,0 +1,22 @@
+{
+    "name": "jw-1980/pluck",
+    "description": "Shared spider fetch primitives (source drivers, polite fetching, guards, FlareSolverr client) for NutriCompare and watvindenwijvan.nl",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "guzzlehttp/guzzle": "^7.10",
+        "psr/http-message": "^2.0",
+        "psr/http-client": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pluck\\": "src/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
