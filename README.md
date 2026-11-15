@@ -54,7 +54,7 @@ detection and backoff.
   two consumer apps sit on different Laravel majors (12 and 13), so no
   `laravel/framework` requirement belongs here; each app keeps a thin
   integration layer (service provider, config mapping) in its own repo.
-- Common ground: PHP ^8.3, Guzzle ^7.10.
+- Common ground: PHP ^8.3, Guzzle `^7.10 || ^8.0` (WelZoLekker's lock file pins Guzzle 8.3.0; the suite passes on 7.10 and 8.5 — see `docs/BUILD_NOTES.md`).
 
 ## Naming note (recorded tradeoff)
 
@@ -71,7 +71,9 @@ consumers land.
 | `docs/FUNCTIONAL_DESIGN.md` | The build brief: owner requirements as stated (traceability), target architecture, Inktomi's behaviour spec (what we adapt), the division of labour, security, recommendations, open questions |
 | `docs/PROXY_CONTRACT.md` | The wire contract v1 between the PHP SDK and `pluck-proxy` — strip modes incl. `xpath` keep-expressions, outcome taxonomy, politeness, caching |
 | `docs/MIGRATION_PLAN.md` | Ordered, gated phases for the implementing agent, with hard rejects |
-| `docs/INTEGRATION.md` | Composer adoption for both consumer apps |
+| `docs/INTEGRATION.md` | Composer adoption for both consumer apps, with usage |
+| `docs/BUILD_NOTES.md` | What the `0.1.0` SDK contains, what is not built, deviations from the design, verification status |
+| `docs/SITE_PROBE.md` | Does a site need FlareSolverr / a browser, or does plain PHP work? How to run the probe and read it |
 
 ## Roadmap
 

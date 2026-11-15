@@ -1,0 +1,107 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Pluck\Http\ChromiumSourceDriver;
+use Pluck\Http\FlareSolverrSourceDriver;
+use Pluck\Http\HttpSourceDriver;
+use Pluck\Probe\SiteProbe;
+use Pluck\Support\ArrayCache;
+use Pluck\Throttle\PoliteDomainThrottle;
+
+foreach ([__DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'] as $autoload) {
+    if (is_file($autoload)) {
+        require $autoload;
+        break;
+    }
+}
+
+$usage = <<<'TXT'
+Usage: pluck probe <url>... [--flaresolverr=URL] [--chromium=PATH] [--json]
+
+  Tells whether a site needs FlareSolverr / a browser, or whether a plain GET
+  from THIS machine works. Run it on the host you care about (e.g. mijn.host):
+  a result from another IP says nothing about that host.
+
+  --flaresolverr=URL  FlareSolverr base URL, e.g. http://127.0.0.1:8191
+  --chromium=PATH     Headless Chromium binary (plain headless, not stealth)
+  --json              Machine-readable output
+TXT;
+
+$args = array_slice($argv, 1);
+if (($args[0] ?? '') !== 'probe' || count($args) < 2) {
+    fwrite(STDERR, $usage."\n");
+    exit(2);
+}
+array_shift($args);
+
+$urls = [];
+$flare = null;
+$chromium = null;
+$json = false;
+foreach ($args as $arg) {
+    if (str_starts_with($arg, '--flaresolverr=')) {
+        $flare = substr($arg, 15);
+    } elseif (str_starts_with($arg, '--chromium=')) {
+        $chromium = substr($arg, 11);
+    } elseif ($arg === '--json') {
+        $json = true;
+    } elseif (str_starts_with($arg, '--')) {
+        fwrite(STDERR, "Unknown option {$arg}\n{$usage}\n");
+        exit(2);
+    } else {
+        $urls[] = $arg;
+    }
+}
+
+$rungs = [new HttpSourceDriver()];
+if ($flare !== null && $flare !== '') {
+    $rungs[] = new FlareSolverrSourceDriver($flare);
+}
+if ($chromium !== null && $chromium !== '') {
+    $rungs[] = new ChromiumSourceDriver($chromium);
+}
+
+$probe = new SiteProbe($rungs, new PoliteDomainThrottle(new ArrayCache()));
+$reports = [];
+$failures = 0;
+
+foreach ($urls as $url) {
+    try {
+        $report = $probe->probe($url);
+    } catch (Throwable $e) {
+        // One bad URL (unresolvable, refused target) must not hide the results of the others.
+        $failures++;
+        fwrite(STDERR, "{$url}: ".$e->getMessage()."\n");
+
+        continue;
+    }
+    $reports[] = $report;
+
+    if ($json) {
+        continue;
+    }
+
+    echo "\n{$url}\n  verdict: {$report->verdict->value}\n  advice:  {$report->verdict->advice()}\n";
+    foreach ($report->rungs as $rung) {
+        $r = $rung->result;
+        $s = $rung->signals;
+        printf(
+            "  - %-12s %-14s status=%s%s%s%s  %.1fs\n",
+            $rung->rung,
+            $r->outcome->value,
+            $r->shopStatus ?? '-',
+            $r->blockSignal !== null ? "  block=\"{$r->blockSignal}\"" : '',
+            $r->error !== null ? "  error=\"{$r->error}\"" : '',
+            $s !== null ? sprintf('  bytes=%d jsonld_product=%s price=%s text=%d shell=%s', $s->bytes, $s->jsonLdProduct ? 'y' : 'n', $s->priceMarkup ? 'y' : 'n', $s->visibleTextChars, $s->looksLikeShell() ? 'y' : 'n') : '',
+            $rung->elapsedSeconds,
+        );
+    }
+}
+
+if ($json) {
+    echo json_encode(array_map(static fn ($r) => $r->toArray(), $reports), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
+}
+
+exit($failures > 0 ? 1 : 0);

@@ -77,3 +77,50 @@ more:
   `blocked` violates the no-silent-failure rule.
 - Feeds, robots.txt and vendor URLs stay direct fetches (the documented
   boundary exception) — they do not go through the proxy.
+
+## 6. Usage (what `0.1.0` provides)
+
+**Via the proxy** (the target path; needs `pluck-proxy`, MIGRATION_PLAN phase 1):
+
+```php
+use Pluck\Client\{ProxyClient, RenderRequest, Outcome, PluckException};
+
+$client = new ProxyClient(config('pluck.url'), new \GuzzleHttp\Client());   // https://scraper.<domain>/<SECRET>/v1
+
+$envelope = $client->render(RenderRequest::xpath($url, ['price' => '//span[@itemprop="price"]']));
+
+if (! $envelope->isFetched()) {
+    // blocked | shop_error | upstream_error: record the state, NEVER "no price found"
+    return;
+}
+$prices = $envelope->fragment('price');
+$stale  = $envelope->staleExpressions();   // names that matched nothing => extraction-health signal
+```
+
+`ProxyClient` throws `InvalidRequest` (consumer bug, HTTP 400), `RateLimited`
+(HTTP 429, `retryAfterSeconds`) and `PluckException` (transport, wrong secret
+path, malformed answer — it fails closed). The secret path is scrubbed from
+every message.
+
+**Direct, without the proxy** (transition: FlareSolverr on the Docker network or
+behind the front door; or plain HTTP when the probe says that is enough):
+
+```php
+use Pluck\Http\{DirectSourceChain, HttpSourceDriver, FlareSolverrSourceDriver};
+use Pluck\Throttle\{PoliteDomainThrottle, CircuitBreaker};
+
+$chain = new DirectSourceChain(
+    [new HttpSourceDriver(), new FlareSolverrSourceDriver($flareSolverrUrl, breaker: new CircuitBreaker($psr16, 'flaresolverr'))],
+    new PoliteDomainThrottle($psr16),          // 3 s/domain, 1 s global, 10-min cooldown after a block
+);
+
+$result = $chain->fetch($url);                  // SourceResult: ->outcome, ->body only when fetched
+```
+
+**Laravel wiring** (consumer repo, not here): bind `Psr\SimpleCache\CacheInterface`
+to `Cache::store()` (Laravel's cache repository implements PSR-16; for several
+queue workers use a store with atomic locks) and read the endpoint from config
+(`PLUCK_PROXY_URL`, and for direct use the existing `FLARESOLVERR_URL`).
+
+**Before choosing a driver for a shop, probe it from the host that will fetch** —
+see `docs/SITE_PROBE.md`.
