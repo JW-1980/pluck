@@ -181,4 +181,21 @@ final class ProxyClientTest extends TestCase
         $this->expectException(InvalidRequest::class);
         new ProxyClient('scraper/v1', Http::client([]));
     }
+
+    public function test_the_interpreter_works_on_any_psr7_response_so_a_consumer_can_keep_its_own_transport(): void
+    {
+        $interpreter = new \Pluck\Client\ResponseInterpreter();
+
+        $this->assertSame(Outcome::Blocked, $interpreter->interpret(Http::json(Http::envelope(['outcome' => 'blocked', 'html' => null])))->outcome);
+        $this->assertSame(Outcome::UpstreamError, $interpreter->interpret(Http::json(Http::envelope(['outcome' => 'upstream_error', 'html' => null]), 502))->outcome);
+
+        foreach ([[404, PluckException::class], [429, RateLimited::class], [400, InvalidRequest::class], [504, PluckException::class]] as [$status, $class]) {
+            try {
+                $interpreter->interpret(new Response($status, [], 'plain text'));
+                $this->fail("HTTP {$status} must throw.");
+            } catch (PluckException $e) {
+                $this->assertInstanceOf($class, $e);
+            }
+        }
+    }
 }
