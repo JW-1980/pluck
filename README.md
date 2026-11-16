@@ -72,6 +72,7 @@ consumers land.
 | `docs/PROXY_CONTRACT.md` | The wire contract v1 between the PHP SDK and `pluck-proxy` — strip modes incl. `xpath` keep-expressions, outcome taxonomy, politeness, caching |
 | `docs/MIGRATION_PLAN.md` | Ordered, gated phases for the implementing agent, with hard rejects |
 | `docs/INTEGRATION.md` | Composer adoption for both consumer apps, with usage |
+| `proxy/README.md` | The proxy service: behaviour, configuration, decisions the contract left open, verification status |
 | `docs/BUILD_NOTES.md` | What the `0.1.0` SDK contains, what is not built, deviations from the design, verification status |
 | `docs/SITE_PROBE.md` | Does a site need FlareSolverr / a browser, or does plain PHP work? How to run the probe and read it |
 

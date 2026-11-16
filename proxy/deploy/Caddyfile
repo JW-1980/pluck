@@ -1,0 +1,24 @@
+# Front door (FUNCTIONAL_DESIGN §8). The secret path is the credential:
+#   https://scraper.<domain>/<SECRET>/v1/render
+# Everything else answers an identical empty 404. Access logging is OFF so the path never lands in a log.
+# Rotation = change PLUCK_SECRET here and in the two consumers' settings, nothing else.
+{
+	admin off
+}
+
+scraper.{$PLUCK_DOMAIN} {
+	log {
+		output discard
+	}
+
+	handle_path /{$PLUCK_SECRET}/* {
+		# Optional allowlist of the webhosts' egress IPs: uncomment and set PLUCK_ALLOW_IPS
+		# @outsiders not remote_ip {$PLUCK_ALLOW_IPS}
+		# respond @outsiders 404
+		reverse_proxy pluck-proxy:8080
+	}
+
+	handle {
+		respond 404
+	}
+}

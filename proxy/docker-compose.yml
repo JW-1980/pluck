@@ -1,0 +1,40 @@
+# Proxy stack for the one spider VPS (FUNCTIONAL_DESIGN §3): caddy -> pluck-proxy -> flaresolverr.
+# FlareSolverr has NO authentication: it is never published and shares a network only with pluck-proxy.
+# Run:  cd proxy && cp deploy/.env.example deploy/.env && docker compose --env-file deploy/.env up -d --build
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      PLUCK_DOMAIN: ${PLUCK_DOMAIN:?set PLUCK_DOMAIN}
+      PLUCK_SECRET: ${PLUCK_SECRET:?set PLUCK_SECRET}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks: [edge]
+    depends_on: [pluck-proxy]
+
+  pluck-proxy:
+    build: .
+    restart: unless-stopped
+    # no ports: reachable only through caddy
+    environment:
+      FLARESOLVERR_URL: http://flaresolverr:8191
+      PLUCK_RATE_LIMIT_PER_MINUTE: ${PLUCK_RATE_LIMIT_PER_MINUTE:-0}
+    networks: [edge, renderers]
+    depends_on: [flaresolverr]
+
+  flaresolverr:
+    # Pin a verified tag before production; `latest` is only acceptable while evaluating.
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    # no ports: never published
+    networks: [renderers]
+
+networks:
+  edge:
+  renderers:
+
+volumes:
+  caddy_data:

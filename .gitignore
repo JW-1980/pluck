@@ -6,3 +6,7 @@
 .phpcs-cache
 .phpstan-cache/
 /composer.lock
+__pycache__/
+.pytest_cache/
+*.egg-info/
+/proxy/.venv/

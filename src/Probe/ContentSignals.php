@@ -35,7 +35,21 @@ final readonly class ContentSignals
             }
         }
 
-        $priceMarkup = preg_match('/itemprop=["\']price["\']|property=["\'](?:product|og):price|"priceCurrency"|"price"\s*:/i', $html) === 1;
+        // Price evidence counts in the document and in JSON data scripts, NOT in plain JavaScript
+        // bodies: an SPA bundle that merely contains the text `itemprop="price"` is still a shell.
+        $priceMarkup = false;
+        if (preg_match_all('#<script\b([^>]*)>(.*?)</script>#is', $html, $scripts, PREG_SET_ORDER) > 0) {
+            foreach ($scripts as $script) {
+                if (preg_match('/type=["\'][^"\']*json[^"\']*["\']/i', $script[1]) === 1 && preg_match('/"price"\s*:|"priceCurrency"/i', $script[2]) === 1) {
+                    $priceMarkup = true;
+                    break;
+                }
+            }
+        }
+        if (! $priceMarkup) {
+            $outsideScripts = preg_replace('#<script\b.*?</script>#is', '', $html) ?? $html;
+            $priceMarkup = preg_match('/itemprop=["\']price["\']|property=["\'](?:product|og):price/i', $outsideScripts) === 1;
+        }
 
         $withoutCode = preg_replace(['#<script\b.*?</script>#is', '#<style\b.*?</style>#is', '#<noscript\b.*?</noscript>#is'], '', $html) ?? $html;
         $text = trim((string) preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($withoutCode), ENT_QUOTES | ENT_HTML5)));

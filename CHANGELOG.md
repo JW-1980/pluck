@@ -13,4 +13,7 @@ deviations from the design and verification status.
 - `BlockDetector` (port of Inktomi), `PoliteDomainThrottle`, `CircuitBreaker`,
   `UserAgent`.
 - `SiteProbe` and `bin/pluck probe`: does a site need FlareSolverr/a browser?
+- `proxy/`: the pluck-proxy service (contract v1): renderer chain plain → FlareSolverr →
+  Chromium (stealth profile), strip modes incl. xpath, SSRF-vetted pinned targets,
+  politeness, cooldown, cache; Dockerfile, compose and Caddy front door.
 - Supports Guzzle `^7.10 || ^8.0`, PHP `^8.3`.

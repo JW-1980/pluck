@@ -65,10 +65,16 @@ redirect rule, probe verdict `moved_host`; WelZoLekker's preset URL is stale.)
 ### What this does and does not show
 
 - **Shown:** from a clean cloud IP, with a browser UA, plain HTTP is *hard
-  blocked* by AH, Kruidvat and Etos (Akamai-style 403) while an **unpatched**
-  headless Chromium on the same IP gets the real page. So a stealth browser was
-  **not** needed for those three from that IP; a normal rendering browser — which
-  is what FlareSolverr drives — is the indicated rung. Plus and Aldi need
+  blocked* by AH, Kruidvat and Etos (Akamai-style 403) while headless Chromium
+  with an ordinary UA (the probe's `--chromium` rung sets one) gets the real
+  page. **Correction (2026-11-16, found while building the proxy):** this is not
+  "no stealth needed". Playwright's *default* headless Chromium (`HeadlessChrome`
+  UA) was refused by ah.nl with the same 403; it passed only with Inktomi's
+  stealth profile (normal UA, `AutomationControlled` off, `navigator.webdriver`
+  removed), and TLS impersonation alone (`curl_cffi chrome124`) did not help. So
+  the indicated rung is a rendering browser **with at least that light stealth
+  profile** — which the proxy's Chromium rung now applies. Heavier stealth
+  was not needed for these three from this IP. Plus and Aldi need
   JavaScript rendering regardless of blocking. Dirk, Hoogvliet and the supplement
   shop need neither.
 - **Not shown:** whether mijn.host's IP and cURL/OpenSSL fingerprint get the same

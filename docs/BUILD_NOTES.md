@@ -1,4 +1,4 @@
-# Build notes — PHP SDK `0.1.0` (not tagged)
+# Build notes — PHP SDK and proxy `0.1.0` (not tagged)
 
 What was built from `MIGRATION_PLAN.md` phase 2 (plus the direct fetch drivers
 and the site probe), what was deliberately **not** built, where the build
@@ -18,11 +18,11 @@ Every constant traces to a recorded donor value or the contract; none is invente
 
 ## Not built (and why)
 
-- **The proxy service** (`proxy/`, MIGRATION_PLAN phase 1). The SDK is written
-  against the contract and tested with canned envelopes (the phase 2 gate);
-  there is no running proxy yet, so `ProxyClient` has **never talked to a real
-  proxy**. Until phase 1 exists, consumers can use the direct chain
-  (`DirectSourceChain`) against FlareSolverr.
+- ~~The proxy service~~ — **built 2026-11-16** (`proxy/`, see `proxy/README.md`
+  for behaviour, open-contract decisions and what is not verified). `ProxyClient`
+  has now talked to the real service over a socket (`ProxyInteropTest`).
+  Still open from phase 1: image build / `compose up` / Caddy config were not run
+  (no Docker daemon, no Caddy here), no real FlareSolverr, never run from the VPS.
 - **Phase 0 wiring audit / extraction from NutriCompare.** NutriCompare's source
   was not available in this build environment, so nothing was extracted from it.
   `TargetGuard`, `PoliteFetcher` and the throttle are written fresh from the
@@ -75,7 +75,7 @@ Every constant traces to a recorded donor value or the contract; none is invente
 
 | Check | Result |
 |---|---|
-| `vendor/bin/phpunit` — 176 unit + 7 integration tests | **passed**, on Guzzle 7.10.6 **and** 8.5.0 |
+| `vendor/bin/phpunit` — 176 unit + 7 socket + 7 proxy-interop tests (interop skips unless `PLUCK_PROXY_PYTHON` is set) | **passed**, on Guzzle 7.10.6 **and** 8.5.0 |
 | Integration tests (real sockets via `php -S`) | gzip bomb, declared and chunked oversize, **mid-transfer abort timing**, DNS pin (with a pin-off negative control), redirects |
 | Mutation checks (break the code, expect red) | cap, pin, 404 rule, envelope content rule, throttle wait, redirect rule, CGNAT range, FlareSolverr double-status judgement, chain `shop_error` stop, lenient error decode: **all caught**. An earlier survivor (cap disabled, tests still green) exposed the false-green and led to the timing test |
 | `bin/pluck probe` against live sites | ran from the build sandbox — see `SITE_PROBE.md` for what that does and does not prove |
@@ -84,3 +84,15 @@ Every constant traces to a recorded donor value or the contract; none is invente
 (the driver is tested against canned replies of the documented reply shape only);
 any real `pluck-proxy`; installation inside either consumer app; NutriCompare
 at all; a probe run from mijn.host.
+
+## Proxy verification (2026-11-16, Python 3.13.18)
+
+`cd proxy && python -m pytest`: 115 passed — contract tests against the real app, a real
+HTTP shop on a socket, lxml, curl_cffi, real Chromium; fake only for FlareSolverr.
+Mutation checks (disable one guarantee, expect red): block detection, cooldown, 404 rule,
+cache read/write, tracker and script stripping, node cap, XPath function guard, SSRF
+ranges, same-site redirect, **mid-transfer body cap**, **Chromium request guard**,
+politeness booking, stealth UA, stealth init script — all caught. Two survivors exposed
+weak tests (cap masked by `Content-Length`; guard indistinguishable from an unreachable
+target) and the control for the second exposed a real bug (guard verdicts were cached per
+host, not per host:port). Live renders: see `proxy/README.md`.

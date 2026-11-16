@@ -126,7 +126,7 @@ final class SiteProbeTest extends TestCase
     {
         $product = ContentSignals::analyse(self::PRODUCT);
         $shell = ContentSignals::analyse(self::SHELL);
-        $inlineState = ContentSignals::analyse('<div id="root"></div><script>window.__S={"price":12.5}</script>');
+        $inlineState = ContentSignals::analyse('<div id="root"></div><script type="application/json">{"price":12.5}</script>');
 
         $this->assertTrue($product->jsonLdProduct);
         $this->assertTrue($product->hasProductData());
@@ -136,6 +136,10 @@ final class SiteProbeTest extends TestCase
         $this->assertTrue($outSystems->javascriptNotice);
         $this->assertTrue($outSystems->looksLikeShell(), 'a shell without a conventional mount node is still a shell');
         $this->assertFalse(ContentSignals::analyse('<body>'.str_repeat('Wij verkopen vitamines. ', 40).'Schakel JavaScript in voor chat.</body>')->looksLikeShell(), 'a long server-rendered page that merely mentions JavaScript is not a shell');
+        $bundle = ContentSignals::analyse('<div id="root"></div><script>el.innerHTML=\'<span itemprop="price">\'; var o={"price":1}</script>');
+        $this->assertFalse($bundle->hasProductData(), 'price text inside a plain JS bundle is not product data');
+        $this->assertTrue($bundle->looksLikeShell());
+        $this->assertTrue(ContentSignals::analyse('<script type="application/json">{"props":{"price":12.5}}</script>')->hasProductData());
         $this->assertFalse($inlineState->looksLikeShell(), 'price data embedded in the HTML means plain GET already carries it');
     }
 }
